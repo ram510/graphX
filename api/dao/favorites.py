@@ -36,6 +36,27 @@ class FavoriteDAO:
     """
     # tag::add[]
     def add(self, user_id, movie_id):
+        def add_to_favorites(tx, user_id, movie_id):
+            row = tx.run("""
+            MATCH (u:User {userId: $userId})
+            MATCH (m:Movie {tmdbId: $movieId})
+
+            MERGE (u)-[r:HAS_FAVORITE]->(m)
+            ON CREATE SET u.createdAt = datetime()
+
+            RETURN m {
+                .*,
+                favorite: true
+            } AS movie
+            """, userId=user_id, movieId=movie_id).single()
+
+        # If no rows are returnedm throw a NotFoundException
+            if row == None:
+                raise NotFoundException()
+
+            return row.get("movie")
+        with self.driver.session() as session:
+            return session.write_transaction(add_to_favorites, user_id, movie_id)
         # TODO: Open a new Session
         # TODO: Define a new transaction function to create a HAS_FAVORITE relationship
         # TODO: Execute the transaction function within a Write Transaction
